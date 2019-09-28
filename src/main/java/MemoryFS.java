@@ -18,7 +18,7 @@ import java.util.Objects;
 import com.sun.security.auth.module.UnixSystem;
 
 /**
- * @author Luke Thompson and (add your name here)
+ * @author Luke Thompson and Dinith Wannigama (dwan609)
  * @since 04.09.19
  */
 public class MemoryFS extends FileSystemStub {
@@ -29,18 +29,30 @@ public class MemoryFS extends FileSystemStub {
     private MemoryVisualiser visualiser;
     private UnixSystem unix = new UnixSystem();
 
+    // --------------------- MAINTAIN INODE FOR ROOT SEPARATELY
+
     @Override
     public Pointer init(Pointer conn) {
 
         // setup an example file for testing purposes
         MemoryINode iNode = new MemoryINode();
         FileStat stat = new FileStat(Runtime.getSystemRuntime());
+
         // you will have to add more stat information here eventually
         stat.st_mode.set(FileStat.S_IFREG | 0444 | 0200);
         stat.st_size.set(HELLO_STR.getBytes().length);
+
         iNode.setStat(stat);
         iNode.setContent(HELLO_STR.getBytes());
         iNodeTable.updateINode(HELLO_PATH, iNode);
+
+        Timespec[] helloTimespec = new Timespec[]{};
+        helloTimespec[0].tv_nsec.set(System.nanoTime());
+        helloTimespec[0].tv_sec.set(System.currentTimeMillis() / 1000);
+        helloTimespec[1].tv_nsec.set(System.nanoTime());
+        helloTimespec[1].tv_sec.set(System.currentTimeMillis() / 1000);
+        System.out.println("AVACADO");
+        utimens(HELLO_PATH, helloTimespec);
 
         if (isVisualised()) {
             visualiser = new MemoryVisualiser();
@@ -53,18 +65,24 @@ public class MemoryFS extends FileSystemStub {
     @Override
     public int getattr(String path, FileStat stat) {
         int res = 0;
+
         if (Objects.equals(path, "/")) { // minimal set up for the mount point root
             stat.st_mode.set(FileStat.S_IFDIR | 0755);
             stat.st_nlink.set(2);
+
         } else if (iNodeTable.containsINode(path)) {
             FileStat savedStat = iNodeTable.getINode(path).getStat();
             // fill in the stat object with values from the savedStat object of your inode
             stat.st_mode.set(savedStat.st_mode.intValue());
             stat.st_size.set(savedStat.st_size.intValue());
+            stat.st_uid.set(unix.getUid());
+            stat.st_gid.set(unix.getGid());
+            stat.st_nlink.set(savedStat.st_nlink.intValue());
 
         } else {
             res = -ErrorCodes.ENOENT();
         }
+
         return res;
     }
 
@@ -79,6 +97,9 @@ public class MemoryFS extends FileSystemStub {
         //      off - just use 0
         filler.apply(buf, ".", null, 0);
         filler.apply(buf, "..", null, 0);
+
+        // Set<String> files = iNodeTable
+        filler.apply(buf, "hello", iNodeTable.getINode("/hello").getStat(), 0);
 
         return 0;
     }
@@ -154,10 +175,20 @@ public class MemoryFS extends FileSystemStub {
         // You need to set the corresponding fields of the inode's stat object.
         // You can access the data in the Timespec objects with "get()" and "longValue()".
         // You have to find out which time fields these correspond to.
-        // timespec[0].tv_nsec
-        // timespec[0].tv_sec
-        // timespec[1].tv_nsec
-        // timespec[1].tv_sec
+
+        // timespec[0].tv_nsec  - Last access time (atim) - nanoseconds (0-999999999)
+        // timespec[0].tv_sec   - Last access time (atim) - seconds (>= 0)
+        // timespec[1].tv_nsec  - Last modification time (mtim) - nanoseconds (0-999999999)
+        // timespec[1].tv_sec   - Last modification time (mtim) - seconds (>= 0)
+
+        FileStat stat = iNodeTable.getINode(path).getStat();
+        stat.st_atim.tv_nsec.set(timespec[0].tv_nsec.longValue());
+        stat.st_atim.tv_sec.set(timespec[0].tv_sec.longValue());
+        stat.st_mtim.tv_nsec.set(timespec[1].tv_nsec.longValue());
+        stat.st_mtim.tv_sec.set(timespec[1].tv_sec.longValue());
+
+        System.out.println("BANANA");
+
         return 0;
     }
     
@@ -257,6 +288,9 @@ public class MemoryFS extends FileSystemStub {
     }
 
     public static void main(String[] args) {
+        System.out.println("------------ THIS SHOULD PRINT ------------");
+        System.out.println("------------ AVACADO & BANANA SHOULD PRINT ------------");
+
         MemoryFS fs = new MemoryFS();
         try {
             fs.mount(args, true);

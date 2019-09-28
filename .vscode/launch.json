@@ -10,7 +10,7 @@
             "request": "launch",
             "mainClass": "MemoryFS",
             "projectName": "MemoryFS",
-            "args": "-d -f /tmp/memMount"
+            "args": "-d -f /home/dinith/memMount"
         }
     ]
 }
