@@ -150,7 +150,13 @@ public class MemoryFS extends FileSystemStub {
             if (offset + size > contLength) {
                 size = contLength - offset;
             }
+
             buf.put(0, content, 0, contLength);
+
+            // Update the file access time metadata
+            FileStat fs = iNodeTable.getINode(path).getStat();
+            fs.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
+            fs.st_atim.tv_nsec.set(System.nanoTime());
 
         } else {
             size = 0;
@@ -184,8 +190,11 @@ public class MemoryFS extends FileSystemStub {
             System.arraycopy(dst, 0, newContent, (int) offset, (int) size - 1);
 
             iNodeTable.getINode(path).setContent(newContent);
-            // Set the file size metadata
-            iNodeTable.getINode(path).getStat().st_size.set(size + offset);
+            // Set the file size and modified time metadata
+            FileStat fs = iNodeTable.getINode(path).getStat();
+            fs.st_size.set(size + offset);
+            fs.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
+            fs.st_mtim.tv_nsec.set(System.nanoTime());
         }
 
         if (isVisualised()) {
