@@ -40,51 +40,29 @@ public class MemoryFS extends FileSystemStub {
         stat.st_mode.set(FileStat.S_IFREG | 0444 | 0200);
         stat.st_size.set(HELLO_STR.getBytes().length);
         stat.st_nlink.set(1);
-        stat.st_ctim.tv_sec.set(System.currentTimeMillis()/1000);
+        stat.st_ctim.tv_sec.set(System.currentTimeMillis() / 1000);
         stat.st_ctim.tv_nsec.set(System.nanoTime());
-        stat.st_mtim.tv_sec.set(System.currentTimeMillis()/1000);
+        stat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
         stat.st_mtim.tv_nsec.set(System.nanoTime());
-        stat.st_atim.tv_sec.set(System.currentTimeMillis()/1000);
+        stat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
         stat.st_atim.tv_nsec.set(System.nanoTime());
-
 
         iNode.setStat(stat);
         iNode.setContent(HELLO_STR.getBytes());
         iNodeTable.updateINode(HELLO_PATH, iNode);
-        System.out.println("AVACADO 5");
 
         // Timespec[] helloTimespec = new Timespec[] {};
-
-        // System.out.println("\n atim nano - " + helloTimespec[0].tv_nsec.longValue() +
-        // "\n");
-        // System.out.println("\n atim sec - " + helloTimespec[0].tv_sec.longValue() +
-        // "\n");
-        // System.out.println("\n mtim nano - " + helloTimespec[1].tv_nsec.longValue() +
-        // "\n");
-        // System.out.println("\n mtim sec - " + helloTimespec[1].tv_sec.longValue() +
-        // "\n");
-
-        // System.out.println("AVACADO 6");
-        // // helloTimespec[0].tv_nsec.set(System.nanoTime());
-        // System.out.println("AVACADO 7");
-        // // helloTimespec[0].tv_sec.set(System.currentTimeMillis() / 1000);
-        // System.out.println("AVACADO 8");
-        // // helloTimespec[1].tv_nsec.set(System.nanoTime());
-        // System.out.println("AVACADO 9");
-        // // helloTimespec[1].tv_sec.set(System.currentTimeMillis() / 1000);
-        // System.out.println("AVACADO 10");
+        // helloTimespec[0].tv_nsec.set(System.nanoTime());
+        // helloTimespec[0].tv_sec.set(System.currentTimeMillis() / 1000);
+        // helloTimespec[1].tv_nsec.set(System.nanoTime());
+        // helloTimespec[1].tv_sec.set(System.currentTimeMillis() / 1000);
         // utimens(HELLO_PATH, helloTimespec);
-        // System.out.println("AVACADO 11");
 
         if (isVisualised()) {
-            System.out.println("AVACADO 12");
             visualiser = new MemoryVisualiser();
-            System.out.println("AVACADO 13");
             visualiser.sendINodeTable(iNodeTable);
-            System.out.println("AVACADO 14");
         }
 
-        System.out.println("AVACADO 15");
         return conn;
     }
 
@@ -112,7 +90,6 @@ public class MemoryFS extends FileSystemStub {
             stat.st_mtim.tv_nsec.set(savedStat.st_mtim.tv_nsec.longValue());
             stat.st_atim.tv_sec.set(savedStat.st_atim.tv_sec.get());
             stat.st_atim.tv_nsec.set(savedStat.st_atim.tv_nsec.longValue());
-
 
         } else {
             res = -ErrorCodes.ENOENT();
@@ -164,10 +141,9 @@ public class MemoryFS extends FileSystemStub {
         // something like:
         // buf.put(0, content, offset, amount);
 
-        int amount = 0;
+        // int amount = 0;
 
         byte[] content = iNodeTable.getINode(path).getContent();
-
         int contLength = content.length;
 
         if (offset < contLength) {
@@ -175,6 +151,7 @@ public class MemoryFS extends FileSystemStub {
                 size = contLength - offset;
             }
             buf.put(0, content, 0, contLength);
+
         } else {
             size = 0;
         }
@@ -194,28 +171,21 @@ public class MemoryFS extends FileSystemStub {
         // similar to read but you get data from the buffer like:
         // buf.get(0, content, offset, size);
 
-        System.out.println("\n\n ...... WRITING");
-
-        byte[] content = iNodeTable.getINode(path).getContent();
         byte[] dst = new byte[(int) size];
+        buf.get(0, dst, 0, (int) size);
 
-        int contLength = content.length;
+        byte[] oldContent = iNodeTable.getINode(path).getContent();
+        int OldContLength = oldContent.length;
 
-        if (offset < contLength) {
-            if (offset + size > contLength) {
-                size = contLength - offset;
-            }
-            buf.get(0, dst, 0, contLength);
-
-            System.out.println("\n\n ...... NEW CONTENT: " + new String(dst));
-
-            byte[] newContent = new byte[content.length + dst.length];
-            System.arraycopy(content, 0, newContent, 0, content.length);
-            System.arraycopy(dst, 0, newContent, 0, dst.length);
+        if (offset <= OldContLength) {
+            // Concatenate the new content
+            byte[] newContent = new byte[(int) offset + (int) size];
+            System.arraycopy(oldContent, 0, newContent, 0, (int) offset);
+            System.arraycopy(dst, 0, newContent, (int) offset, (int) size - 1);
 
             iNodeTable.getINode(path).setContent(newContent);
-        } else {
-            size = 0;
+            // Set the file size metadata
+            iNodeTable.getINode(path).getStat().st_size.set(size + offset);
         }
 
         if (isVisualised()) {
