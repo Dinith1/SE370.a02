@@ -81,8 +81,6 @@ public class MemoryFS extends FileSystemStub {
             stat.st_size.set(savedStat.st_size.intValue());
             stat.st_uid.set(unix.getUid());
             stat.st_gid.set(unix.getGid());
-            // stat.st_uid.set(getContext().uid.get());
-            // stat.st_gid.set(getContext().gid.get());
             stat.st_nlink.set(savedStat.st_nlink.intValue());
             stat.st_ctim.tv_sec.set(savedStat.st_ctim.tv_sec.get());
             stat.st_ctim.tv_nsec.set(savedStat.st_ctim.tv_nsec.longValue());
@@ -213,6 +211,20 @@ public class MemoryFS extends FileSystemStub {
         MemoryINode mockINode = new MemoryINode();
         // set up the stat information for this inode
 
+        FileStat stat = new FileStat(Runtime.getSystemRuntime());
+
+        // you will have to add more stat information here eventually
+        stat.st_mode.set(FileStat.S_IFREG | 0444 | 0200);
+        stat.st_size.set(HELLO_STR.getBytes().length);
+        stat.st_nlink.set(1);
+        stat.st_ctim.tv_sec.set(System.currentTimeMillis() / 1000);
+        stat.st_ctim.tv_nsec.set(System.nanoTime());
+        // stat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
+        // stat.st_mtim.tv_nsec.set(System.nanoTime());
+        // stat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
+        // stat.st_atim.tv_nsec.set(System.nanoTime());
+
+        mockINode.setStat(stat);
         iNodeTable.updateINode(path, mockINode);
 
         if (isVisualised()) {
@@ -354,10 +366,6 @@ public class MemoryFS extends FileSystemStub {
     }
 
     public static void main(String[] args) {
-        System.out.println("------------ THIS SHOULD PRINT ------------");
-        System.out.println("------------ AVACADO & BANANA SHOULD PRINT ------------");
-        System.out.println("------------ eeeeeeeeeeeeeeee ------------");
-
         MemoryFS fs = new MemoryFS();
         try {
             fs.mount(args, true);
