@@ -181,13 +181,17 @@ public class MemoryFS extends FileSystemStub {
         byte[] oldContent = iNodeTable.getINode(path).getContent();
         int OldContLength = oldContent.length;
 
+        byte[] tempContent = new byte[oldContent.length];
+        tempContent = oldContent.clone();
+
         if (offset <= OldContLength) {
             // Concatenate the new content
-            byte[] newContent = new byte[(int) offset + (int) size];
-            System.arraycopy(oldContent, 0, newContent, 0, (int) offset);
-            System.arraycopy(dst, 0, newContent, (int) offset, (int) size - 1);
+            // byte[] newContent = new byte[(int) offset + (int) size];
+            oldContent = new byte[(int) offset + (int) size];
+            System.arraycopy(tempContent, 0, oldContent, 0, (int) offset);
+            System.arraycopy(dst, 0, oldContent, (int) offset, (int) size - 1);
 
-            iNodeTable.getINode(path).setContent(newContent);
+            iNodeTable.getINode(path).setContent(oldContent);
             // Set the file size and modified time metadata
             FileStat fs = iNodeTable.getINode(path).getStat();
             fs.st_size.set(size + offset);
@@ -214,8 +218,9 @@ public class MemoryFS extends FileSystemStub {
         FileStat stat = new FileStat(Runtime.getSystemRuntime());
 
         // you will have to add more stat information here eventually
-        stat.st_mode.set(FileStat.S_IFREG | 0444 | 0200);
-        stat.st_size.set(HELLO_STR.getBytes().length);
+        stat.st_mode.set(mode);
+        stat.st_rdev.set(rdev);
+        stat.st_size.set(0);
         stat.st_nlink.set(1);
         stat.st_ctim.tv_sec.set(System.currentTimeMillis() / 1000);
         stat.st_ctim.tv_nsec.set(System.nanoTime());
@@ -272,6 +277,26 @@ public class MemoryFS extends FileSystemStub {
 
     @Override
     public int link(java.lang.String oldpath, java.lang.String newpath) {
+        // Return error if the newpath already exists
+        if (!iNodeTable.containsINode(oldpath) || iNodeTable.containsINode(newpath)) {
+            return -ErrorCodes.ENONET();
+        }
+
+        mknod(newpath, FileStat.S_IFREG | 0444 | 0200, 0); // ----------- UNSURE
+
+        MemoryINode oldfile = iNodeTable.getINode(oldpath);
+        FileStat oldfileStat = oldfile.getStat();
+        oldfileStat.st_nlink.set(oldfile.getStat().st_nlink.intValue() + 1);
+
+        MemoryINode newfile = iNodeTable.getINode(newpath);
+        FileStat newfileStat = newfile.getStat();
+        newfileStat.st_size.set(oldfileStat.st_size.intValue());
+        newfileStat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
+        newfileStat.st_mtim.tv_nsec.set(System.nanoTime());
+        newfileStat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
+        newfileStat.st_atim.tv_nsec.set(System.nanoTime());
+        newfile.setContent(oldfile.getContent());
+
         return 0;
     }
 
