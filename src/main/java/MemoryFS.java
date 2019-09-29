@@ -40,6 +40,13 @@ public class MemoryFS extends FileSystemStub {
         stat.st_mode.set(FileStat.S_IFREG | 0444 | 0200);
         stat.st_size.set(HELLO_STR.getBytes().length);
         stat.st_nlink.set(1);
+        stat.st_ctim.tv_sec.set(System.currentTimeMillis()/1000);
+        stat.st_ctim.tv_nsec.set(System.nanoTime());
+        stat.st_mtim.tv_sec.set(System.currentTimeMillis()/1000);
+        stat.st_mtim.tv_nsec.set(System.nanoTime());
+        stat.st_atim.tv_sec.set(System.currentTimeMillis()/1000);
+        stat.st_atim.tv_nsec.set(System.nanoTime());
+
 
         iNode.setStat(stat);
         iNode.setContent(HELLO_STR.getBytes());
@@ -99,6 +106,13 @@ public class MemoryFS extends FileSystemStub {
             // stat.st_uid.set(getContext().uid.get());
             // stat.st_gid.set(getContext().gid.get());
             stat.st_nlink.set(savedStat.st_nlink.intValue());
+            stat.st_ctim.tv_sec.set(savedStat.st_ctim.tv_sec.get());
+            stat.st_ctim.tv_nsec.set(savedStat.st_ctim.tv_nsec.longValue());
+            stat.st_mtim.tv_sec.set(savedStat.st_mtim.tv_sec.get());
+            stat.st_mtim.tv_nsec.set(savedStat.st_mtim.tv_nsec.longValue());
+            stat.st_atim.tv_sec.set(savedStat.st_atim.tv_sec.get());
+            stat.st_atim.tv_nsec.set(savedStat.st_atim.tv_nsec.longValue());
+
 
         } else {
             res = -ErrorCodes.ENOENT();
@@ -179,6 +193,30 @@ public class MemoryFS extends FileSystemStub {
         }
         // similar to read but you get data from the buffer like:
         // buf.get(0, content, offset, size);
+
+        System.out.println("\n\n ...... WRITING");
+
+        byte[] content = iNodeTable.getINode(path).getContent();
+        byte[] dst = new byte[(int) size];
+
+        int contLength = content.length;
+
+        if (offset < contLength) {
+            if (offset + size > contLength) {
+                size = contLength - offset;
+            }
+            buf.get(0, dst, 0, contLength);
+
+            System.out.println("\n\n ...... NEW CONTENT: " + new String(dst));
+
+            byte[] newContent = new byte[content.length + dst.length];
+            System.arraycopy(content, 0, newContent, 0, content.length);
+            System.arraycopy(dst, 0, newContent, 0, dst.length);
+
+            iNodeTable.getINode(path).setContent(newContent);
+        } else {
+            size = 0;
+        }
 
         if (isVisualised()) {
             visualiser.sendINodeTable(iNodeTable);
