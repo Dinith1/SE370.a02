@@ -280,7 +280,14 @@ public class MemoryFS extends FileSystemStub {
         if (!iNodeTable.containsINode(path)) {
             return -ErrorCodes.ENONET();
         }
+
+        FileStat stat = iNodeTable.getINode(path).getStat();
+
         // delete the file if there are no more hard links
+        if (stat.st_nlink.intValue() == 1) {
+            iNodeTable.removeINode(path);
+        }
+
         return 0;
     }
 
