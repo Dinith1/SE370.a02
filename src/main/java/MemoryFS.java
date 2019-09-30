@@ -51,13 +51,6 @@ public class MemoryFS extends FileSystemStub {
         iNode.setContent(HELLO_STR.getBytes());
         iNodeTable.updateINode(HELLO_PATH, iNode);
 
-        // Timespec[] helloTimespec = new Timespec[] {};
-        // helloTimespec[0].tv_nsec.set(System.nanoTime());
-        // helloTimespec[0].tv_sec.set(System.currentTimeMillis() / 1000);
-        // helloTimespec[1].tv_nsec.set(System.nanoTime());
-        // helloTimespec[1].tv_sec.set(System.currentTimeMillis() / 1000);
-        // utimens(HELLO_PATH, helloTimespec);
-
         if (isVisualised()) {
             visualiser = new MemoryVisualiser();
             visualiser.sendINodeTable(iNodeTable);
@@ -76,7 +69,8 @@ public class MemoryFS extends FileSystemStub {
 
         } else if (iNodeTable.containsINode(path)) {
             FileStat savedStat = iNodeTable.getINode(path).getStat();
-            // fill in the stat object with values from the savedStat object of your inode
+
+            // Fill in the stat object with values from the savedStat object of your inode
             stat.st_mode.set(savedStat.st_mode.intValue());
             stat.st_size.set(savedStat.st_size.intValue());
             stat.st_uid.set(unix.getUid());
@@ -144,21 +138,12 @@ public class MemoryFS extends FileSystemStub {
         byte[] content = iNodeTable.getINode(path).getContent();
         int contLength = content.length;
 
-        if (offset < contLength) {
-            if (offset + size > contLength) {
-                size = contLength - offset;
-            }
+        buf.put(0, content, 0, contLength);
 
-            buf.put(0, content, 0, contLength);
-
-            // Update the file access time metadata
-            FileStat fs = iNodeTable.getINode(path).getStat();
-            fs.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
-            fs.st_atim.tv_nsec.set(System.nanoTime());
-
-        } else {
-            size = 0;
-        }
+        // Update the file access time metadata
+        FileStat fs = iNodeTable.getINode(path).getStat();
+        fs.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
+        fs.st_atim.tv_nsec.set(System.nanoTime());
 
         if (isVisualised()) {
             visualiser.sendINodeTable(iNodeTable);
@@ -172,32 +157,25 @@ public class MemoryFS extends FileSystemStub {
         if (!iNodeTable.containsINode(path)) {
             return -ErrorCodes.ENOENT(); // ENONET();
         }
-        // similar to read but you get data from the buffer like:
-        // buf.get(0, content, offset, size);
 
+        // Get user-written content
         byte[] dst = new byte[(int) size];
         buf.get(0, dst, 0, (int) size);
 
         byte[] oldContent = iNodeTable.getINode(path).getContent();
-        int OldContLength = oldContent.length;
 
-        byte[] tempContent = new byte[oldContent.length];
-        tempContent = oldContent.clone();
+        // Concatenate the new content
+        byte[] newContent = new byte[(int) offset + (int) size];
+        System.arraycopy(oldContent, 0, newContent, 0, (int) offset);
+        System.arraycopy(dst, 0, newContent, (int) offset, (int) size);
 
-        if (offset <= OldContLength) {
-            // Concatenate the new content
-            // byte[] newContent = new byte[(int) offset + (int) size];
-            oldContent = new byte[(int) offset + (int) size];
-            System.arraycopy(tempContent, 0, oldContent, 0, (int) offset);
-            System.arraycopy(dst, 0, oldContent, (int) offset, (int) size - 1);
+        iNodeTable.getINode(path).setContent(newContent);
 
-            iNodeTable.getINode(path).setContent(oldContent);
-            // Set the file size and modified time metadata
-            FileStat fs = iNodeTable.getINode(path).getStat();
-            fs.st_size.set(size + offset);
-            fs.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
-            fs.st_mtim.tv_nsec.set(System.nanoTime());
-        }
+        // Set the file size and modified time metadata
+        FileStat fs = iNodeTable.getINode(path).getStat();
+        fs.st_size.set(size + offset);
+        fs.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
+        fs.st_mtim.tv_nsec.set(System.nanoTime());
 
         if (isVisualised()) {
             visualiser.sendINodeTable(iNodeTable);
@@ -285,17 +263,20 @@ public class MemoryFS extends FileSystemStub {
         mknod(newpath, FileStat.S_IFREG | 0444 | 0200, 0); // ----------- UNSURE
 
         MemoryINode oldfile = iNodeTable.getINode(oldpath);
-        FileStat oldfileStat = oldfile.getStat();
-        oldfileStat.st_nlink.set(oldfile.getStat().st_nlink.intValue() + 1);
+        oldfile.getStat().st_nlink.set(oldfile.getStat().st_nlink.intValue() + 1);
+        iNodeTable.updateINode(newpath, oldfile);
 
-        MemoryINode newfile = iNodeTable.getINode(newpath);
-        FileStat newfileStat = newfile.getStat();
-        newfileStat.st_size.set(oldfileStat.st_size.intValue());
-        newfileStat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
-        newfileStat.st_mtim.tv_nsec.set(System.nanoTime());
-        newfileStat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
-        newfileStat.st_atim.tv_nsec.set(System.nanoTime());
-        newfile.setContent(oldfile.getContent());
+        // FileStat oldfileStat = oldfile.getStat();
+        // oldfileStat.st_nlink.set(oldfile.getStat().st_nlink.intValue() + 1);
+
+        // MemoryINode newfile = iNodeTable.getINode(newpath);
+        // FileStat newfileStat = newfile.getStat();
+        // newfileStat.st_size.set(oldfileStat.st_size.intValue());
+        // newfileStat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
+        // newfileStat.st_mtim.tv_nsec.set(System.nanoTime());
+        // newfileStat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
+        // newfileStat.st_atim.tv_nsec.set(System.nanoTime());
+        // newfile.setContent(oldfile.getContent());
 
         return 0;
     }
@@ -307,11 +288,15 @@ public class MemoryFS extends FileSystemStub {
         }
 
         FileStat stat = iNodeTable.getINode(path).getStat();
+        int numLinks = stat.st_nlink.intValue();
 
-        // delete the file if there are no more hard links
-        if (stat.st_nlink.intValue() == 1) {
-            iNodeTable.removeINode(path);
+        // Delete the file if there are no more hard links
+        if (numLinks > 1) {
+            FileStat fs = iNodeTable.getINode(path).getStat();
+            fs.st_nlink.set(numLinks - 1);
         }
+
+        iNodeTable.removeINode(path);
 
         return 0;
     }
