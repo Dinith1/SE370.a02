@@ -20,6 +20,7 @@ import java.util.Objects;
  * @since 04.09.19
  */
 public class MemoryFS extends FileSystemStub {
+
     private static final String HELLO_PATH = "/hello";
     private static final String HELLO_STR = "Hello World!\n";
 
@@ -27,16 +28,12 @@ public class MemoryFS extends FileSystemStub {
     private MemoryVisualiser visualiser;
     private UnixSystem unix = new UnixSystem();
 
-    // --------------------- MAINTAIN INODE FOR ROOT SEPARATELY???
-
     @Override
     public Pointer init(Pointer conn) {
-
-        // setup an example file for testing purposes
+        // Set up an example file for testing purposes
         MemoryINode iNode = new MemoryINode();
         FileStat stat = new FileStat(Runtime.getSystemRuntime());
 
-        // you will have to add more stat information here eventually
         stat.st_mode.set(FileStat.S_IFREG | 0444 | 0200);
         stat.st_size.set(HELLO_STR.getBytes().length);
         stat.st_nlink.set(1);
@@ -63,14 +60,14 @@ public class MemoryFS extends FileSystemStub {
     public int getattr(String path, FileStat stat) {
         int res = 0;
 
-        if (Objects.equals(path, "/")) { // minimal set up for the mount point root
+        if (Objects.equals(path, "/")) { // Minimal set up for the mount point root
             stat.st_mode.set(FileStat.S_IFDIR | 0755);
             stat.st_nlink.set(2);
 
         } else if (iNodeTable.containsINode(path)) {
             FileStat savedStat = iNodeTable.getINode(path).getStat();
 
-            // Fill in the stat object with values from the savedStat object of your inode
+            // Fill in the stat object with values from the savedStat object of the inode
             stat.st_mode.set(savedStat.st_mode.intValue());
             stat.st_size.set(savedStat.st_size.intValue());
             stat.st_uid.set(unix.getUid());
@@ -92,16 +89,10 @@ public class MemoryFS extends FileSystemStub {
 
     @Override
     public int readdir(String path, Pointer buf, FuseFillDir filler, @off_t long offset, FuseFileInfo fi) {
-        // For each file in the directory call filler.apply.
-        // The filler.apply method adds information on the files
-        // in the directory, it has the following parameters:
-        // buf - a pointer to a buffer for the directory entries
-        // name - the file name (with no "/" at the beginning)
-        // stbuf - the FileStat information for the file
-        // off - just use 0
         filler.apply(buf, ".", null, 0);
         filler.apply(buf, "..", null, 0);
 
+        // For each file in the directory call filler.apply.
         for (String fp : iNodeTable.entries()) {
             if (fp.startsWith(path) && fp.contains(path)) {
                 // Assumes path always ends with "/"
@@ -128,16 +119,11 @@ public class MemoryFS extends FileSystemStub {
         if (!iNodeTable.containsINode(path)) {
             return -ErrorCodes.ENOENT();
         }
-        // you need to extract data from the content field of the inode and place it in
-        // the buffer
-        // something like:
-        // buf.put(0, content, offset, amount);
-
-        // int amount = 0;
 
         byte[] content = iNodeTable.getINode(path).getContent();
         int contLength = content.length;
 
+        // Place the content in the buffer
         buf.put(0, content, 0, contLength);
 
         // Update the file access time metadata
@@ -155,16 +141,17 @@ public class MemoryFS extends FileSystemStub {
     @Override
     public int write(String path, Pointer buf, @size_t long size, @off_t long offset, FuseFileInfo fi) {
         if (!iNodeTable.containsINode(path)) {
-            return -ErrorCodes.ENOENT(); // ENONET();
+            return -ErrorCodes.ENOENT();
         }
 
-        // Get user-written content
         byte[] dst = new byte[(int) size];
+
+        // Get user-written content (i.e. from command line)
         buf.get(0, dst, 0, (int) size);
 
         byte[] oldContent = iNodeTable.getINode(path).getContent();
 
-        // Concatenate the new content
+        // Add the new content and place into the inode
         byte[] newContent = new byte[(int) offset + (int) size];
         System.arraycopy(oldContent, 0, newContent, 0, (int) offset);
         System.arraycopy(dst, 0, newContent, (int) offset, (int) size);
@@ -191,21 +178,15 @@ public class MemoryFS extends FileSystemStub {
         }
 
         MemoryINode mockINode = new MemoryINode();
-        // set up the stat information for this inode
-
         FileStat stat = new FileStat(Runtime.getSystemRuntime());
 
-        // you will have to add more stat information here eventually
+        // Set the metadata
         stat.st_mode.set(mode);
         stat.st_rdev.set(rdev);
         stat.st_size.set(0);
         stat.st_nlink.set(1);
         stat.st_ctim.tv_sec.set(System.currentTimeMillis() / 1000);
         stat.st_ctim.tv_nsec.set(System.nanoTime());
-        // stat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
-        // stat.st_mtim.tv_nsec.set(System.nanoTime());
-        // stat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
-        // stat.st_atim.tv_nsec.set(System.nanoTime());
 
         mockINode.setStat(stat);
         iNodeTable.updateINode(path, mockINode);
@@ -224,12 +205,6 @@ public class MemoryFS extends FileSystemStub {
 
     @Override
     public int utimens(String path, Timespec[] timespec) {
-        // The Timespec array has the following information.
-        // You need to set the corresponding fields of the inode's stat object.
-        // You can access the data in the Timespec objects with "get()" and
-        // "longValue()".
-        // You have to find out which time fields these correspond to.
-
         // timespec[0].tv_nsec - Last access time (atim) - nanoseconds (0-999999999)
         // timespec[0].tv_sec - Last access time (atim) - seconds (>= 0)
         // timespec[1].tv_nsec - Last modification time (mtim) - nanoseconds
@@ -238,45 +213,30 @@ public class MemoryFS extends FileSystemStub {
 
         FileStat stat = iNodeTable.getINode(path).getStat();
 
-        System.out.println("\n atim nano - " + timespec[0].tv_nsec.longValue() + "\n");
-        System.out.println("\n atim sec - " + timespec[0].tv_sec.longValue() + "\n");
-        System.out.println("\n mtim nano - " + timespec[1].tv_nsec.longValue() + "\n");
-        System.out.println("\n mtim sec - " + timespec[1].tv_sec.longValue() + "\n");
-
         stat.st_atim.tv_nsec.set(timespec[0].tv_nsec.longValue());
         stat.st_atim.tv_sec.set(timespec[0].tv_sec.longValue());
         stat.st_mtim.tv_nsec.set(timespec[1].tv_nsec.longValue());
         stat.st_mtim.tv_sec.set(timespec[1].tv_sec.longValue());
-
-        System.out.println("BANANA");
 
         return 0;
     }
 
     @Override
     public int link(java.lang.String oldpath, java.lang.String newpath) {
-        // Return error if the newpath already exists
         if (!iNodeTable.containsINode(oldpath) || iNodeTable.containsINode(newpath)) {
             return -ErrorCodes.ENONET();
         }
 
-        mknod(newpath, FileStat.S_IFREG | 0444 | 0200, 0); // ----------- UNSURE
+        // Make the new file
+        mknod(newpath, FileStat.S_IFREG | 0444 | 0200, 0);
 
         MemoryINode oldfile = iNodeTable.getINode(oldpath);
+
+        // Increase the hard link count of the file
         oldfile.getStat().st_nlink.set(oldfile.getStat().st_nlink.intValue() + 1);
+
+        // Add the newpath file entry to the table (same inode as oldpath file)
         iNodeTable.updateINode(newpath, oldfile);
-
-        // FileStat oldfileStat = oldfile.getStat();
-        // oldfileStat.st_nlink.set(oldfile.getStat().st_nlink.intValue() + 1);
-
-        // MemoryINode newfile = iNodeTable.getINode(newpath);
-        // FileStat newfileStat = newfile.getStat();
-        // newfileStat.st_size.set(oldfileStat.st_size.intValue());
-        // newfileStat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
-        // newfileStat.st_mtim.tv_nsec.set(System.nanoTime());
-        // newfileStat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
-        // newfileStat.st_atim.tv_nsec.set(System.nanoTime());
-        // newfile.setContent(oldfile.getContent());
 
         return 0;
     }
@@ -290,9 +250,9 @@ public class MemoryFS extends FileSystemStub {
         FileStat stat = iNodeTable.getINode(path).getStat();
         int numLinks = stat.st_nlink.intValue();
 
-        // Delete the file if there are no more hard links
         if (numLinks > 1) {
             FileStat fs = iNodeTable.getINode(path).getStat();
+            // Decrement the hard link count
             fs.st_nlink.set(numLinks - 1);
         }
 
