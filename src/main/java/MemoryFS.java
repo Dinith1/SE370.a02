@@ -9,7 +9,6 @@ import jnr.ffi.types.dev_t;
 import jnr.ffi.types.mode_t;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
-import util.MemoryDirectory;
 import util.MemoryINode;
 import util.MemoryINodeTable;
 import util.MemoryVisualiser;
