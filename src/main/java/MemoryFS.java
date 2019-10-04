@@ -200,8 +200,6 @@ public class MemoryFS extends FileSystemStub {
         mockINode.setStat(stat);
         iNodeTable.updateINode(path, mockINode);
 
-        System.out.println("\n\n... PATH: " + path);
-
         if (isVisualised()) {
             visualiser.sendINodeTable(iNodeTable);
         }
@@ -271,8 +269,6 @@ public class MemoryFS extends FileSystemStub {
             return -ErrorCodes.EEXIST();
         }
 
-        System.out.println("\n\n......" + path);
-
         MemoryINode dir = new MemoryINode();
 
         FileStat stat = new FileStat(Runtime.getSystemRuntime());
@@ -292,7 +288,6 @@ public class MemoryFS extends FileSystemStub {
 
         // Increment the number of links of the parent (excluding root) directory
         if (!path.substring(0, path.lastIndexOf('/') + 1).equals("/")) {
-            System.out.println("\n\nPARENT: " + path.substring(0, path.lastIndexOf('/')));
             FileStat parentStat = iNodeTable.getINode(path.substring(0, path.lastIndexOf('/'))).getStat();
             parentStat.st_nlink.set(parentStat.st_nlink.intValue() + 1);
         }
