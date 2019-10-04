@@ -300,6 +300,16 @@ public class MemoryFS extends FileSystemStub {
 
     @Override
     public int rmdir(String path) {
+
+        iNodeTable.removeINode(path);
+
+        // Remove all files in directory
+        for (String fp : iNodeTable.entries()) {
+            if (fp.startsWith(path) && fp.contains(path)) {
+                unlink(fp);
+            }
+        }
+
         return 0;
     }
 
