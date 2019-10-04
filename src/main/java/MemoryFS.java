@@ -96,21 +96,15 @@ public class MemoryFS extends FileSystemStub {
         String[] pathSplit = path.split("/");
         int pathSplitLength = (pathSplit.length == 0) ? 1 : pathSplit.length;
 
-        System.out.println("\nDIR: " + path);
-
         // For each file in the directory call filler.apply.
         for (String fp : iNodeTable.entries()) {
-            System.out.println("\nFILE: " + fp);
             String[] fpSplit = fp.split("/");
 
             if (fp.startsWith(path) && fp.contains(path) && !fp.equals(path)
                     && !(fpSplit.length > pathSplitLength + 1)) {
-                System.out.println("\nFILE TRUE: " + fp);
 
                 // Assumes path always ends with "/"
                 String file = fp.substring(fp.lastIndexOf("/") + 1);
-
-                System.out.println("\nFILE PATH TRUE: " + file);
 
                 filler.apply(buf, file, iNodeTable.getINode(fp).getStat(), 0);
             }
