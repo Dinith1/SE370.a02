@@ -242,9 +242,6 @@ public class MemoryFS extends FileSystemStub {
             return -ErrorCodes.ENONET();
         }
 
-        // Make the new file
-        mknod(newpath, FileStat.S_IFREG | 0444 | 0200, 0);
-
         MemoryINode oldfile = iNodeTable.getINode(oldpath);
 
         // Increase the hard link count of the file
@@ -264,12 +261,8 @@ public class MemoryFS extends FileSystemStub {
 
         FileStat stat = iNodeTable.getINode(path).getStat();
         int numLinks = stat.st_nlink.intValue();
-
-        if (numLinks > 1) {
-            FileStat fs = iNodeTable.getINode(path).getStat();
-            // Decrement the hard link count
-            fs.st_nlink.set(numLinks - 1);
-        }
+        // Decrement the hard link count
+        stat.st_nlink.set(numLinks - 1);
 
         iNodeTable.removeINode(path);
 
