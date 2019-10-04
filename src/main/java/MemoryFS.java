@@ -9,6 +9,7 @@ import jnr.ffi.types.dev_t;
 import jnr.ffi.types.mode_t;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
+import util.MemoryDirectory;
 import util.MemoryINode;
 import util.MemoryINodeTable;
 import util.MemoryVisualiser;
@@ -92,11 +93,23 @@ public class MemoryFS extends FileSystemStub {
         filler.apply(buf, ".", null, 0);
         filler.apply(buf, "..", null, 0);
 
+        String[] pathSplit = path.split("/");
+        int pathSplitLength = (pathSplit.length == 0) ? 1 : pathSplit.length;
+
+        System.out.println("\nDIR: " + path);
+
         // For each file in the directory call filler.apply.
         for (String fp : iNodeTable.entries()) {
-            if (fp.startsWith(path) && fp.contains(path)) {
+            System.out.println("\nFILE: " + fp);
+            String[] fpSplit = fp.split("/");
+
+            if (fp.startsWith(path) && fp.contains(path)
+                    && !fp.equals(path) && !(fpSplit.length > pathSplitLength + 1)) {
+                System.out.println("\nFILE TRUE: " + fp);
+
                 // Assumes path always ends with "/"
                 String file = fp.substring(path.length());
+
                 filler.apply(buf, file, iNodeTable.getINode(fp).getStat(), 0);
             }
         }
@@ -191,6 +204,8 @@ public class MemoryFS extends FileSystemStub {
         mockINode.setStat(stat);
         iNodeTable.updateINode(path, mockINode);
 
+        System.out.println("\n\n... PATH: " + path);
+
         if (isVisualised()) {
             visualiser.sendINodeTable(iNodeTable);
         }
@@ -263,6 +278,39 @@ public class MemoryFS extends FileSystemStub {
 
     @Override
     public int mkdir(String path, long mode) {
+        if (iNodeTable.containsINode(path)) {
+            return -ErrorCodes.EEXIST();
+        }
+
+        System.out.println("\n\n......" + path);
+
+        MemoryINode dir = new MemoryINode();
+
+        FileStat stat = new FileStat(Runtime.getSystemRuntime());
+
+        // Set the metadata
+        // stat.st_rdev.set(rdev);
+        stat.st_mode.set(mode | FileStat.S_IFDIR);
+        stat.st_size.set(0);
+        stat.st_nlink.set(1);
+        stat.st_ctim.tv_sec.set(System.currentTimeMillis() / 1000);
+        stat.st_ctim.tv_nsec.set(System.nanoTime());
+        stat.st_mtim.tv_sec.set(System.currentTimeMillis() / 1000);
+        stat.st_mtim.tv_nsec.set(System.nanoTime());
+        stat.st_atim.tv_sec.set(System.currentTimeMillis() / 1000);
+        stat.st_atim.tv_nsec.set(System.nanoTime());
+        stat.st_nlink.set(2);
+
+        // Increment the number of links of the parent (excluding root) directory
+        if (!path.substring(0, path.lastIndexOf('/') + 1).equals("/")) {
+            System.out.println("\n\nPARENT: " + path.substring(0, path.lastIndexOf('/')));
+            FileStat parentStat = iNodeTable.getINode(path.substring(0, path.lastIndexOf('/'))).getStat();
+            parentStat.st_nlink.set(parentStat.st_nlink.intValue() + 1);
+        }
+
+        dir.setStat(stat);
+        iNodeTable.updateINode(path, dir);
+
         return 0;
     }
 
